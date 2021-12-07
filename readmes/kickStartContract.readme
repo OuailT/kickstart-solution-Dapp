@@ -1,0 +1,129 @@
+pragma solidity ^0.4.17;
+
+
+// This contract will create an instance of our Compaign contract
+// Keep Track of all the compaign that has been deployed in our application
+// To keep some level of security.
+contract FactoryCompaign {
+    // array to store the address
+    address[] public deployedCompaigns;
+
+    function createCompaign(uint minimum) public {
+        // returns the address of the compaign & the address of the creator
+        address newCompaignAddress = new Compaign(minimum, msg.sender);
+        deployedCompaigns.push(newCompaignAddress);
+    }
+
+    //function who returns all the compaign address
+    function getDeployedCompaigns() public view returns(address[]) {
+        return deployedCompaigns;
+    }
+
+}
+
+
+
+contract Compaign {
+    // We can't call instance of request inside a function because it a "type" not variables
+    // struct let the users create their own data types
+    struct Request {
+        string description;
+        uint value;
+        address recipient;
+        bool complete;
+        uint approvalCount; // represent and count only people who voted yes;
+        mapping(address => bool) approvalsVotes; //  => records if a specific address has voted or not
+    }
+
+    // We can call instance of each varible inside the function
+    // These variables are piecex of data that held in our contract "storage"
+    Request[] public requests;
+    address public manager;
+    uint public minimumContribution;
+    mapping(address => bool) public contributors;
+    uint countContributors;
+
+    
+    // Create a modifier to give only to the manager the acces
+    // To some call some specific functions
+    modifier restricted() {
+        require(msg.sender == manager);
+        _;
+    }
+
+
+    // We always include the manager inside a function constructur
+    // as the only person to call some functions
+    // Mininum is a param that is stored in the memory not in the storage
+    // which means that the params is deleted after the function finish excution
+    // ##### Constructor Function to set the minimum contributor and the owner ###
+    function Compaign(uint minimum, address creator) public  {
+        // return the address of the manager 
+        manager = creator;
+        // return the minum contribution that we gonna fix
+        minimumContribution = minimum;
+    }
+
+    // ##### Function called when someone want to contribute to the project ###
+    // when we sent a money to the network it always cost money
+    function contribute() public payable {
+        // check if the sender respect the minimum contribution
+        require(msg.value > minimumContribution);
+        // push the adress of the person who contribute.
+        // approvers.push(msg.sender); => array methods;
+        // 49 line means that the value of the key address will be stored in mapping data of approvers
+        contributors[msg.sender] = true;
+        
+        countContributors++;
+
+    }
+
+    // ##### Call by the manager to make a new "spending request"###
+    function createRequest(string description, uint value, address recipient) public restricted {
+        
+        Request memory newRequest = Request({
+            description : description,
+            value : value,
+            recipient : recipient,
+            complete : false,
+            approvalCount : 0
+        });
+
+        // push the newRequest to requests array
+        requests.push(newRequest);
+    }
+
+    // ##### Call by each contributor to confirm the "spending request" ####
+    // each contributor should pass an index of the request that he wants to vote that is stored inside "requests" arrays
+    function approuveRequest(uint index) public {
+        
+        // we used storage because we are going to change the data inside requests array
+        // Not with making a copy( like memory)
+        Request storage request = requests[index];
+
+        // check if the user has contributed to the project
+        require(contributors[msg.sender]);
+        // check if the user has voted in this specific request
+        require(!request.approvalsVotes[msg.sender]);
+        // request ["RequestA", "RequestB", "RequestC"]
+        // To give the user the right to vote
+        request.approvalsVotes[msg.sender] = true;
+        // Increment the value of vote inside struct
+        request.approvalCount++;
+    }
+
+    function finilizeRequest(uint index) public {
+        //check if "complete" of the request struct is false; // which means is not finilize
+        require(!requests[index].complete);
+        /* check if the numbers of the votes buy the contributors is greater than the half of them
+        in order to complete the request to true */
+        require(requests[index].approvalCount > (countContributors / 2)); 
+        
+        // then send the money to the recipient(company) if we have 50% of votes
+        requests[index].recipient.transfer(requests[index].value);
+        
+        // then close the request by change the value of complete to true
+        requests[index].complete = true;
+    } 
+
+}

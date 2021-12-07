@@ -1,0 +1,38 @@
+class Chef {
+    Cook() {
+        return "it cooked";
+    }
+
+    Burned() {
+        return "it burned";
+    }
+
+    Delivered() {
+        return "it delivered";
+    }
+}
+
+let chef;
+
+beforeEach(()=> {
+    chef = new Chef();
+});
+
+
+describe("Chef", ()=> {
+    it("Cook", ()=> {
+        // create an instance of the Chef object
+        // const chef = new Chef();
+        // compare the value
+        assert.equal(chef.Cook(), "it cooked");
+    });
+
+    it("Burned", ()=> {
+        
+        assert.equal(chef.Burned(), "it burned");
+    });
+
+    it("delivered", ()=> {
+        assert.equal(chef.Delivered(), "it delivered");
+    });
+});
