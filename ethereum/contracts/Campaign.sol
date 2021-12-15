@@ -1,51 +1,45 @@
-pragma solidity ^0.4.17;
-
-
-// FactoryCompaign contract
-// We Keep track of all the instance of the projects/compaign has been deployed in our network
-// To keep some level of security 
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.5.0 <0.9.0;
 
 contract FactoryCampaign {
     // array to store Campaign adress
-    address[] public deployedCampaigns;
+    Campaign[] public deployedCampaigns;
     // Function to create a new contract and return it address
-    function createCampaigns(uint minimum) public {
-        address newCampaign = new Campaign(minimum, msg.sender);
+    function createCampaigns(uint256 minimum) public {
+        Campaign newCampaign = new Campaign(minimum, msg.sender);
         deployedCampaigns.push(newCampaign);
     }
 
     // Function to return all compaigns address that has been created
-    function getAllCampaignsAddress() public view returns (address[]) {
+    function getAllCampaignsAddress() public view returns (Campaign[] memory) {
         return deployedCampaigns;
     }
     
     
 }
 
-
-
 //Create campaign contract 
 contract Campaign {
 
     // storage variables
     address public manager;
-    Request[] public requests;
-    uint public minimumContribution;
-    uint public contributorsCounter;
-    mapping (address => bool) public contributors; 
+    mapping(uint256 => Request) public requests;
+    uint256 public minimumContribution;
+    uint256 public approversCount;
+    mapping (address => bool) public approvers; 
 
     // struct is type reference(collection of key pairs)
     struct Request {
         string description;
-        uint value;
-        address recepient;
+        uint256 value;
+        address payable recepient;
         bool complete;
-        uint approvalsCount; // counted only people who voted YES
-        mapping(address => bool) approuvalsCounts; // records if a specific address has voted or not;
+        uint256 approvalCount; // counted only people who voted YES
+        mapping(address => bool) approvals; // records if a specific address has voted or not;
     }
 
     // function to display the manager and put the minimum contribution to the project
-    function Campaign(uint minimum, address creator) public {
+    constructor(uint256 minimum, address creator) {
         manager = creator;
         minimumContribution = minimum;
     }
@@ -53,197 +47,84 @@ contract Campaign {
    // ##### Function called when someone want to contribute to the project ###
     function contribute() public payable {
         // Check the minimum sent by the contributor
-        require(msg.value > minimumContribution);
+        require(msg.value > minimumContribution, "minum contribution required");
         // if true push the adress of the contributor to the mapping data
-        contributors[msg.sender] = true;
-        contributorsCounter++;
+        approvers[msg.sender] = true;
+        approversCount++;
     }
 
 
     // ## called by the manager to make a new "spending request"##
-    function createRequest(string description, uint value, address recepient ) public {
-        require(msg.sender == manager);
+    function createRequest (
+        string memory description,
+        uint256 value, 
+        address payable recepient 
+        ) public onlyManager {
 
         // create an instance of struct request data types
-        Request memory newRequest = Request({
-            description : description, 
-            value : value,
-            recepient : recepient,
-            complete : false,
-            approvalsCount : 0
-        });
+        Request storage r = requests;
 
-        requests.push(newRequest); // ["RequestA", "RequestB", "RequestC"]
+            r.description = description; 
+            r.value = value;
+            r.recepient = recepient;
+            r.complete = false;
+            r.approvalsCount = 0;
+        }
+
+        // requests.push(newRequest); // ["RequestA", "RequestB", "RequestC"]
 
     }
 
     // ## Call by the contributors to vote on "spending request"
-    function approveRequest(uint index) public {
+    function approveRequest(uint256 index) public {
+
+        Request storage request = requests[index];
+
         // check if the user has contributed or not
-        require(contributors[msg.sender]);
+        require(
+            approvers[msg.sender],
+            "Only contributors can approve a specific payment request"
+            );
+
         // check if the user hasn't voted before in this request
-        require(!requests[index].approuvalsCounts[msg.sender]);
+        require(
+            !request.approvals[msg.sender],
+            "You have already voted to this request"
+            );
 
         // Give the user the right to vote
-        requests[index].approuvalsCounts[msg.sender] = true;
+        request.approuvalsCounts[msg.sender] = true;
         // increat the count of the vote of the user
-        requests[index].approvalsCount++;
+        request.approvalCount++;
 
     }
 
     // ## Call a function to finalize the request
-    function finalizeRequest(uint index) public {
-        // check if the request has a false complete
-        require(!requests[index].complete);
+    function finalizeRequest(uint256 index) public onlyManager  {
+        Request storage request = requests[index];
+        
         // check if the at least 50% of contributor voted yes to valid the request
-        require(requests[index].approvalsCount > (contributorsCounter / 2));
+        require(
+            request.approvalCount > (approversCount / 2),
+            "This request needs more approvals before it can be finilize"
+            );
        
+       // check if the request has a false complete
+        require(!request.complete, "This request has been already finalized");
+
         // send the money to the recepient
-        requests[index].recepient.transfer(requests[index].value);
+        request.recepient.transfer(request.value);
 
          // Mark the request as true to close it
-        requests[index].complete = true;
+        request.complete = true;
 
     }
+
+    modifier onlyManager() {
+        require(
+            msg.sender == manager,
+            "Only the campaign manager can call this function."
+        ); 
+        _;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// pragma solidity ^0.4.17;
-
-// contract CampaignFactory {
-//     address[] public deployedCampaigns;
-
-//     function createCampaign(uint minimum) public {
-//         address newCampaign = new Campaign(minimum, msg.sender);
-//         deployedCampaigns.push(newCampaign);
-//     }
-
-//     function getDeployedCampaigns() public view returns (address[]) {
-//         return deployedCampaigns;
-//     }
-// }
-
-// contract Campaign {
-//     struct Request {
-//         string description;
-//         uint value;
-//         address recipient;
-//         bool complete;
-//         uint approvalCount;
-//         mapping(address => bool) approvals;
-//     }
-
-//     Request[] public requests;
-//     address public manager;
-//     uint public minimumContribution;
-//     mapping(address => bool) public approvers;
-//     uint public approversCount;
-
-//     modifier restricted() {
-//         require(msg.sender == manager);
-//         _;
-//     }
-
-//     function Campaign(uint minimum, address creator) public {
-//         manager = creator;
-//         minimumContribution = minimum;
-//     }
-
-//     function contribute() public payable {
-//         require(msg.value > minimumContribution);
-
-//         approvers[msg.sender] = true;
-//         approversCount++;
-//     }
-
-//     function createRequest(string description, uint value, address recipient) public restricted {
-//         Request memory newRequest = Request({
-//            description: description,
-//            value: value,
-//            recipient: recipient,
-//            complete: false,
-//            approvalCount: 0
-//         });
-
-//         requests.push(newRequest);
-//     }
-
-//     function approveRequest(uint index) public {
-//         Request storage request = requests[index];
-
-//         require(approvers[msg.sender]);
-//         require(!request.approvals[msg.sender]);
-
-//         request.approvals[msg.sender] = true;
-//         request.approvalCount++;
-//     }
-
-//     function finalizeRequest(uint index) public restricted {
-//         Request storage request = requests[index];
-
-//         require(request.approvalCount > (approversCount / 2));
-//         require(!request.complete);
-
-//         request.recipient.transfer(request.value);
-//         request.complete = true;
-//     }
-// }

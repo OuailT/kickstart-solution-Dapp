@@ -6,7 +6,6 @@ let web3;
 
 
 // check if web3 is running on the browser or on the server
-
 if(typeof window !== "undefined" && typeof window.web3 !== "undefined") {
     // we are in the browser & we are running metamask
 
